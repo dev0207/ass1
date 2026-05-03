@@ -1,0 +1,170 @@
+# ==============================
+# K-NN CLASSIFIER FULL PROJECT
+# ==============================
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier, RadiusNeighborsClassifier
+
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix
+)
+
+# ==============================
+# LOAD DATASET (Iris - UCI)
+# ==============================
+data = load_iris()
+X = data.data
+y = data.target
+
+# Split dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+
+# ==============================
+# FUNCTION TO CALCULATE METRICS
+# ==============================
+def evaluate_model(y_test, y_pred):
+    acc = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average='macro')
+    recall = recall_score(y_test, y_pred, average='macro')
+    f1 = f1_score(y_test, y_pred, average='macro')
+    error_rate = 1 - acc
+    cm = confusion_matrix(y_test, y_pred)
+
+    return acc, precision, recall, f1, error_rate, cm
+
+
+# ==============================
+# 1. STANDARD K-NN
+# ==============================
+print("\n===== STANDARD K-NN =====")
+
+k_values = range(1, 21)
+knn_results = []
+
+best_knn = (0, 0)  # (accuracy, k)
+
+for k in k_values:
+    model = KNeighborsClassifier(n_neighbors=k)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    acc, prec, rec, f1, err, cm = evaluate_model(y_test, y_pred)
+
+    knn_results.append(acc)
+
+    print(f"k={k} | Accuracy={acc:.3f}")
+
+    if acc > best_knn[0]:
+        best_knn = (acc, k)
+
+
+# Plot Accuracy vs k
+plt.figure()
+plt.plot(k_values, knn_results, marker='o')
+plt.title("k vs Accuracy (Standard k-NN)")
+plt.xlabel("k")
+plt.ylabel("Accuracy")
+plt.grid()
+plt.show()
+
+
+# ==============================
+# 2. DISTANCE-WEIGHTED K-NN
+# ==============================
+print("\n===== DISTANCE-WEIGHTED K-NN =====")
+
+weighted_results = []
+best_weighted = (0, 0)
+
+for k in k_values:
+    model = KNeighborsClassifier(n_neighbors=k, weights='distance')
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    acc, prec, rec, f1, err, cm = evaluate_model(y_test, y_pred)
+
+    weighted_results.append(acc)
+
+    print(f"k={k} | Accuracy={acc:.3f}")
+
+    if acc > best_weighted[0]:
+        best_weighted = (acc, k)
+
+
+# ==============================
+# 3. LOCALLY WEIGHTED METHOD
+# ==============================
+print("\n===== LOCALLY WEIGHTED METHOD =====")
+
+radius_model = RadiusNeighborsClassifier(radius=1.0, weights='distance')
+radius_model.fit(X_train, y_train)
+y_pred_local = radius_model.predict(X_test)
+
+local_metrics = evaluate_model(y_test, y_pred_local)
+
+
+# ==============================
+# FINAL METRICS
+# ==============================
+print("\n===== FINAL COMPARISON =====")
+
+# Best Standard k-NN
+model_knn = KNeighborsClassifier(n_neighbors=best_knn[1])
+model_knn.fit(X_train, y_train)
+y_pred_knn = model_knn.predict(X_test)
+knn_metrics = evaluate_model(y_test, y_pred_knn)
+
+# Best Weighted k-NN
+model_weighted = KNeighborsClassifier(
+    n_neighbors=best_weighted[1],
+    weights='distance'
+)
+model_weighted.fit(X_train, y_train)
+y_pred_weighted = model_weighted.predict(X_test)
+weighted_metrics = evaluate_model(y_test, y_pred_weighted)
+
+
+# ==============================
+# PRINT RESULTS
+# ==============================
+def print_metrics(name, metrics):
+    acc, prec, rec, f1, err, cm = metrics
+    print(f"\n{name}")
+    print(f"Accuracy     : {acc:.3f}")
+    print(f"Precision    : {prec:.3f}")
+    print(f"Recall       : {rec:.3f}")
+    print(f"F1 Score     : {f1:.3f}")
+    print(f"Error Rate   : {err:.3f}")
+    print("Confusion Matrix:\n", cm)
+
+
+print_metrics("Standard k-NN (Best k=" + str(best_knn[1]) + ")", knn_metrics)
+print_metrics("Weighted k-NN (Best k=" + str(best_weighted[1]) + ")", weighted_metrics)
+print_metrics("Locally Weighted Method", local_metrics)
+
+
+# ==============================
+# COMPARISON TABLE
+# ==============================
+comparison = pd.DataFrame({
+    "Method": ["Standard k-NN", "Weighted k-NN", "Local Method"],
+    "Accuracy": [knn_metrics[0], weighted_metrics[0], local_metrics[0]],
+    "Precision": [knn_metrics[1], weighted_metrics[1], local_metrics[1]],
+    "Recall": [knn_metrics[2], weighted_metrics[2], local_metrics[2]],
+    "F1 Score": [knn_metrics[3], weighted_metrics[3], local_metrics[3]],
+    "Error Rate": [knn_metrics[4], weighted_metrics[4], local_metrics[4]]
+})
+
+print("\n===== COMPARISON TABLE =====")
+print(comparison)
